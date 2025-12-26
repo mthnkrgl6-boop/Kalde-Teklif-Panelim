@@ -49,6 +49,36 @@ p {
   max-width: 720px;
 }
 
+.view-tabs {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0 2.5rem 1rem;
+}
+
+.tab-button {
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text);
+  border-radius: 12px;
+  padding: 0.65rem 1rem;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.tab-button.active {
+  border-color: rgba(34, 211, 238, 0.5);
+  background: rgba(34, 211, 238, 0.12);
+  color: var(--accent);
+}
+
+.view {
+  display: none;
+}
+
+.view.active {
+  display: block;
+}
+
 .eyebrow {
   text-transform: uppercase;
   font-size: 0.75rem;
@@ -78,6 +108,10 @@ p {
   margin: 0 2.5rem 1.5rem;
   padding: 1.5rem;
   backdrop-filter: blur(12px);
+}
+
+.warning {
+  color: #fcd34d;
 }
 
 .section-header {
@@ -167,11 +201,17 @@ p {
   font-size: 0.9rem;
 }
 
+.request-text-input {
+  width: 100%;
+}
+
 .group-controls input,
 .request-form input,
 .request-form select,
+.request-form textarea,
 .add-product input,
-.data-table input {
+.data-table input,
+.data-table textarea {
   background: var(--table);
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -183,10 +223,16 @@ p {
 .group-controls input:focus,
 .request-form input:focus,
 .request-form select:focus,
+.request-form textarea:focus,
 .add-product input:focus,
-.data-table input:focus {
+.data-table input:focus,
+.data-table textarea:focus {
   outline: 2px solid rgba(34, 211, 238, 0.35);
   border-color: rgba(34, 211, 238, 0.5);
+}
+
+.request-cell {
+  min-width: 260px;
 }
 
 .table-wrapper {
@@ -230,6 +276,72 @@ table {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr)) 130px;
   gap: 0.5rem;
+}
+
+.bulk-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.bulk-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.inline-help {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin-top: 0.25rem;
+}
+
+.upload-card {
+  border: 1px dashed var(--border);
+  background: rgba(255, 255, 255, 0.01);
+  border-radius: 12px;
+  padding: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.upload-card.dragging {
+  border-color: rgba(34, 211, 238, 0.6);
+  background: rgba(34, 211, 238, 0.05);
+}
+
+.attachment-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.attachment-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.55rem 0.65rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.attachment-name {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.attachment-name span {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.stretch {
+  width: 100%;
 }
 
 .request-form {
@@ -353,6 +465,13 @@ table {
   }
   .add-product {
     grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  }
+  .bulk-grid {
+    grid-template-columns: 1fr;
+  }
+  .tab-button {
+    flex: 1;
+    text-align: center;
   }
   .totals {
     grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));

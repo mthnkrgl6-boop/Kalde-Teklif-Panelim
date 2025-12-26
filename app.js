@@ -12,17 +12,26 @@ const groupConfig = [
 const priceData = {};
 const requestItems = [];
 const matchRows = new Map();
+const attachments = [];
 
 const priceGroupsContainer = document.getElementById("priceGroups");
 const requestForm = document.getElementById("requestForm");
+const requestBulkInput = document.getElementById("requestBulk");
+const preferredGroupSelect = document.getElementById("preferredGroup");
+const addBulkRequestsButton = document.getElementById("addBulkRequests");
+const uploadArea = document.getElementById("uploadArea");
+const requestFilesInput = document.getElementById("requestFiles");
+const attachmentList = document.getElementById("attachmentList");
+const viewTabs = document.querySelectorAll("[data-view-target]");
+const views = document.querySelectorAll("[data-view]");
 const requestTextInput = document.getElementById("requestText");
 const requestQtyInput = document.getElementById("requestQty");
-const preferredGroupSelect = document.getElementById("preferredGroup");
 const matchBody = document.getElementById("matchBody");
 const autoMatchButton = document.getElementById("autoMatch");
 const generateQuoteButton = document.getElementById("generateQuote");
 const monthlyRateInput = document.getElementById("monthlyRate");
 const dueDaysInput = document.getElementById("dueDays");
+const unmatchedInfo = document.getElementById("unmatchedInfo");
 
 const subtotalEl = document.getElementById("subtotal");
 const vatTotalEl = document.getElementById("vatTotal");
@@ -146,7 +155,8 @@ function addRequestItem(text, qty, preferredGroup) {
 function createMatchRow(requestId, text, qty) {
   const row = matchRowTemplate.content.firstElementChild.cloneNode(true);
   row.dataset.requestId = requestId;
-  row.querySelector(".request-text").textContent = text;
+  const requestInput = row.querySelector(".request-text-input");
+  requestInput.value = text;
 
   const select = row.querySelector(".product-select");
   const qtyInput = row.querySelector(".qty-input");
@@ -208,6 +218,11 @@ function createMatchRow(requestId, text, qty) {
     if (idx >= 0) requestItems.splice(idx, 1);
     row.remove();
     recalcTotals();
+  });
+
+  requestInput.addEventListener("input", () => {
+    const current = requestItems.find((r) => r.id === requestId);
+    if (current) current.text = requestInput.value;
   });
 
   refreshProductSelect(select);
@@ -272,7 +287,7 @@ function findBestProduct(text, preferredGroup) {
   const haystack = text.toLowerCase();
   const words = haystack.split(/[\s-_,.;]+/).filter((w) => w.length > 2);
   let best = null;
-  let bestScore = 0;
+  let bestScore = -Infinity;
 
   Object.entries(priceData).forEach(([groupKey, data]) => {
     if (preferredGroup && groupKey !== preferredGroup) return;
@@ -281,16 +296,20 @@ function findBestProduct(text, preferredGroup) {
       const code = item.code.toLowerCase();
       let score = 0;
       if (haystack.includes(code)) score += 3;
+      if (code.includes(haystack)) score += 1;
       words.forEach((w) => {
         if (name.includes(w)) score += 1.2;
+        if (code.includes(w)) score += 1;
       });
+      const overlap = name.split(/\s+/).filter((n) => words.includes(n)).length;
+      score += overlap * 0.5;
       if (score > bestScore) {
         bestScore = score;
         best = { ...item, groupKey };
       }
     });
   });
-  return best;
+  return bestScore <= 0 ? null : best;
 }
 
 function fillMatchCells(row, product) {
@@ -328,6 +347,7 @@ function recalcTotals() {
   vatTotalEl.textContent = formatCurrency(vatTotal);
   financeTotalEl.textContent = formatCurrency(finance);
   grandTotalEl.textContent = formatCurrency(subtotal + vatTotal + finance);
+  updateUnmatchedInfo();
 }
 
 function autoMatch() {
@@ -356,6 +376,7 @@ function autoMatch() {
   });
 
   recalcTotals();
+  updateUnmatchedInfo();
 }
 
 function handleQuoteGeneration() {
@@ -465,19 +486,126 @@ function handleQuoteGeneration() {
   win.document.close();
 }
 
+function parseBulkRequests() {
+  const text = requestBulkInput.value || "";
+  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  if (!lines.length) return;
+
+  lines.forEach((line) => {
+    const match = line.match(/^(\d+)\s*(?:x|×|adet)?\s*(.+)$/i);
+    const qty = match ? Number(match[1]) || 1 : 1;
+    const desc = match ? match[2] : line;
+    addRequestItem(desc, qty, preferredGroupSelect.value);
+  });
+
+  requestBulkInput.value = "";
+  recalcTotals();
+}
+
+function renderAttachments() {
+  attachmentList.innerHTML = "";
+  if (!attachments.length) {
+    attachmentList.innerHTML = '<p class="muted">Henüz dosya eklenmedi.</p>';
+    return;
+  }
+  attachments.forEach((file) => {
+    const item = document.createElement("div");
+    item.className = "attachment-item";
+    const link = document.createElement("a");
+    link.href = file.url;
+    link.target = "_blank";
+    link.rel = "noreferrer noopener";
+    link.textContent = file.name;
+    link.className = "badge";
+
+    const nameWrap = document.createElement("div");
+    nameWrap.className = "attachment-name";
+    nameWrap.appendChild(link);
+    const meta = document.createElement("span");
+    meta.textContent = `${file.type || "dosya"} • ${(file.size / 1024).toFixed(1)} KB`;
+    nameWrap.appendChild(meta);
+
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.className = "icon-button danger";
+    removeBtn.textContent = "Sil";
+    removeBtn.addEventListener("click", () => {
+      const idx = attachments.findIndex((f) => f.id === file.id);
+      if (idx >= 0) attachments.splice(idx, 1);
+      renderAttachments();
+    });
+
+    item.appendChild(nameWrap);
+    item.appendChild(removeBtn);
+    attachmentList.appendChild(item);
+  });
+}
+
+function handleFiles(files) {
+  Array.from(files).forEach((file) => {
+    const url = URL.createObjectURL(file);
+    attachments.push({
+      id: createId("att"),
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      url,
+    });
+  });
+  renderAttachments();
+}
+
+function setupUploads() {
+  uploadArea.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    uploadArea.classList.add("dragging");
+  });
+  uploadArea.addEventListener("dragleave", () => uploadArea.classList.remove("dragging"));
+  uploadArea.addEventListener("drop", (e) => {
+    e.preventDefault();
+    uploadArea.classList.remove("dragging");
+    if (e.dataTransfer?.files?.length) handleFiles(e.dataTransfer.files);
+  });
+  requestFilesInput.addEventListener("change", (e) => {
+    if (e.target.files?.length) handleFiles(e.target.files);
+    requestFilesInput.value = "";
+  });
+}
+
+function setupViews() {
+  viewTabs.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const target = btn.dataset.viewTarget;
+      viewTabs.forEach((b) => b.classList.toggle("active", b === btn));
+      views.forEach((v) => v.classList.toggle("active", v.dataset.view === target));
+    });
+  });
+}
+
+function updateUnmatchedInfo() {
+  const unmatched = requestItems.filter((r) => !matchRows.has(r.id)).length;
+  unmatchedInfo.hidden = unmatched === 0;
+}
+
 function init() {
   renderGroupCards();
 
-  requestForm.addEventListener("submit", (e) => {
+  requestForm?.addEventListener("submit", (e) => {
     e.preventDefault();
-    const text = requestTextInput.value.trim();
-    const qty = Number(requestQtyInput.value) || 1;
+    const text = requestTextInput?.value?.trim() ?? "";
+    const qty = Number(requestQtyInput?.value) || 1;
     const preferredGroup = preferredGroupSelect.value;
     if (!text) return;
     addRequestItem(text, qty, preferredGroup);
     requestForm.reset();
-    requestQtyInput.value = 1;
+    if (requestQtyInput) requestQtyInput.value = 1;
     preferredGroupSelect.value = "";
+    updateUnmatchedInfo();
+  });
+
+  addBulkRequestsButton.addEventListener("click", () => {
+    parseBulkRequests();
+    updateUnmatchedInfo();
   });
 
   autoMatchButton.addEventListener("click", () => autoMatch());
@@ -488,6 +616,9 @@ function init() {
   );
   monthlyRateInput.addEventListener("input", recalcTotals);
   dueDaysInput.addEventListener("input", recalcTotals);
+  setupUploads();
+  setupViews();
+  renderAttachments();
 }
 
 document.addEventListener("DOMContentLoaded", init);

@@ -22,99 +22,125 @@
     </div>
   </header>
 
+  <nav class="view-tabs">
+    <button class="tab-button active" data-view-target="quote">Teklif Oluştur</button>
+    <button class="tab-button" data-view-target="lists">Liste Yönetimi</button>
+  </nav>
+
   <main>
-    <section class="panel">
-      <div class="section-header">
-        <div>
-          <p class="eyebrow">Fiyat Listeleri ve Koşullar</p>
-          <h2>Ürün Grupları</h2>
-          <p>Her ürün grubu için fiyat listesi, iskonto ve varsayılan KDV oranını girin.</p>
-        </div>
-        <div class="section-actions">
-          <label class="inline-field">
-            <span>Peşin</span>
-            <input type="radio" name="paymentType" value="pesin" checked>
-          </label>
-          <label class="inline-field">
-            <span>Vadeli</span>
-            <input type="radio" name="paymentType" value="vadeli">
-          </label>
-          <div class="inline-input">
-            <label for="monthlyRate">Aylık Vade Farkı (%)</label>
-            <input type="number" id="monthlyRate" min="0" step="0.01" value="0">
+    <section class="view active" data-view="quote">
+      <section class="panel">
+        <div class="section-header">
+          <div>
+            <p class="eyebrow">Ödeme ve Koşullar</p>
+            <h2>Peşin / Vadeli</h2>
+            <p>Vade farkı ve gün sayısını belirtin. Teklif toplamları otomatik güncellenir.</p>
           </div>
-          <div class="inline-input">
-            <label for="dueDays">Vade (Gün)</label>
-            <input type="number" id="dueDays" min="0" step="1" value="0">
+          <div class="section-actions">
+            <label class="inline-field">
+              <span>Peşin</span>
+              <input type="radio" name="paymentType" value="pesin" checked>
+            </label>
+            <label class="inline-field">
+              <span>Vadeli</span>
+              <input type="radio" name="paymentType" value="vadeli">
+            </label>
+            <div class="inline-input">
+              <label for="monthlyRate">Aylık Vade Farkı (%)</label>
+              <input type="number" id="monthlyRate" min="0" step="0.01" value="0">
+            </div>
+            <div class="inline-input">
+              <label for="dueDays">Vade (Gün)</label>
+              <input type="number" id="dueDays" min="0" step="1" value="0">
+            </div>
           </div>
         </div>
-      </div>
-      <div id="priceGroups" class="group-grid"></div>
+      </section>
+
+      <section class="panel">
+        <div class="section-header">
+          <div>
+            <p class="eyebrow">Müşteri Talebi</p>
+            <h2>Toplu Yapıştır ve Dosya Ekle</h2>
+            <p>Tüm talep satırlarını tek seferde yapıştırın veya resim/PDF/Excel yükleyin, ardından gerekirse revize edin.</p>
+          </div>
+        </div>
+        <div class="bulk-grid">
+          <div class="field">
+            <label for="requestBulk">Talep Listesi (her satır bir kalem)</label>
+            <textarea id="requestBulk" rows="6" placeholder="Örn:\n10 adet PPRC boru 32mm dirsek\n5 m bakır boru 18mm\n1 adet kolektör 6 çıkış"></textarea>
+            <div class="inline-help">Satır başına adet belirtirseniz otomatik algılanır (örn: <strong>10 adet</strong> veya <strong>5x</strong>).</div>
+          </div>
+          <div class="bulk-actions">
+            <div class="field">
+              <label for="preferredGroup">Öncelikli Grup (opsiyonel)</label>
+              <select id="preferredGroup">
+                <option value="">Hepsi</option>
+              </select>
+            </div>
+            <button id="addBulkRequests" class="primary stretch">Satırları Ekle</button>
+            <div class="upload-card" id="uploadArea">
+              <div>
+                <p class="eyebrow">Dosya Ekle</p>
+                <p class="muted">Resim, PDF veya Excel yükleyin. Sistem, içerikleri referans için saklar.</p>
+                <input type="file" id="requestFiles" accept=".png,.jpg,.jpeg,.pdf,.xls,.xlsx,.csv" multiple>
+              </div>
+              <div id="attachmentList" class="attachment-list"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-header">
+          <div>
+            <p class="eyebrow">Eşleşmeler</p>
+            <h2>Teklif Kalemleri</h2>
+            <p>Önerilen ürünleri kontrol edin, talep metnini revize edin; gerekirse değiştirin veya silin.</p>
+          </div>
+          <div class="section-actions stacked">
+            <p class="meta warning" id="unmatchedInfo" hidden>Otomatik eşleşmeyen satırlar mevcut. Manuel seçim yapın veya ürün listelerini güncelleyin.</p>
+            <div class="totals">
+              <div><span>Ara Toplam</span><strong id="subtotal">₺0,00</strong></div>
+              <div><span>KDV</span><strong id="vatTotal">₺0,00</strong></div>
+              <div><span>Vade Farkı</span><strong id="financeTotal">₺0,00</strong></div>
+              <div class="grand"><span>Genel Toplam</span><strong id="grandTotal">₺0,00</strong></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Talep / Revizyon</th>
+                <th>Ürün Seçimi</th>
+                <th>Kod</th>
+                <th>Adet</th>
+                <th>Birim Fiyat</th>
+                <th>İsk. (%)</th>
+                <th>KDV (%)</th>
+                <th>Satır Toplamı</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="matchBody"></tbody>
+          </table>
+        </div>
+      </section>
     </section>
 
-    <section class="panel">
-      <div class="section-header">
-        <div>
-          <p class="eyebrow">Müşteri Talebi</p>
-          <h2>Talep Kalemleri</h2>
-          <p>Müşteriden gelen satırları ekleyin. Sistem ürün listeleriyle eşleştirip kod, isim ve fiyatları önerir.</p>
-        </div>
-      </div>
-      <form id="requestForm" class="request-form">
-        <div class="field">
-          <label for="requestText">Talep Açıklaması</label>
-          <input id="requestText" type="text" required placeholder="Örn: PPRC boru 32mm dirsek">
-        </div>
-        <div class="field">
-          <label for="requestQty">Adet/Miktar</label>
-          <input id="requestQty" type="number" min="1" step="1" value="1" required>
-        </div>
-        <div class="field">
-          <label for="preferredGroup">Öncelikli Grup (opsiyonel)</label>
-          <select id="preferredGroup">
-            <option value="">Hepsi</option>
-          </select>
-        </div>
-        <button type="submit" class="primary">Talebe Ekle</button>
-      </form>
-    </section>
-
-    <section class="panel">
-      <div class="section-header">
-        <div>
-          <p class="eyebrow">Eşleşmeler</p>
-          <h2>Teklif Kalemleri</h2>
-          <p>Önerilen ürünleri kontrol edin, gerekirse değiştirin veya silin.</p>
-        </div>
-        <div class="section-actions stacked">
-          <p class="meta">İndirim ve KDV, seçili ürünün bağlı olduğu grubun varsayılanlarıyla başlar; satır bazında güncellenebilir.</p>
-          <div class="totals">
-            <div><span>Ara Toplam</span><strong id="subtotal">₺0,00</strong></div>
-            <div><span>KDV</span><strong id="vatTotal">₺0,00</strong></div>
-            <div><span>Vade Farkı</span><strong id="financeTotal">₺0,00</strong></div>
-            <div class="grand"><span>Genel Toplam</span><strong id="grandTotal">₺0,00</strong></div>
+    <section class="view" data-view="lists">
+      <section class="panel">
+        <div class="section-header">
+          <div>
+            <p class="eyebrow">Fiyat Listeleri ve Koşullar</p>
+            <h2>Ürün Grupları</h2>
+            <p>Her ürün grubu için fiyat listesi, iskonto ve varsayılan KDV oranını girin.</p>
           </div>
         </div>
-      </div>
-
-      <div class="table-wrapper">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Talep</th>
-              <th>Ürün Seçimi</th>
-              <th>Kod</th>
-              <th>Adet</th>
-              <th>Birim Fiyat</th>
-              <th>İsk. (%)</th>
-              <th>KDV (%)</th>
-              <th>Satır Toplamı</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody id="matchBody"></tbody>
-        </table>
-      </div>
+        <div id="priceGroups" class="group-grid"></div>
+      </section>
     </section>
   </main>
 
@@ -167,7 +193,9 @@
 
   <template id="matchRowTemplate">
     <tr>
-      <td class="muted request-text"></td>
+      <td class="request-cell">
+        <input type="text" class="request-text-input" />
+      </td>
       <td>
         <select class="product-select">
           <option value="">Eşleşme yok</option>
