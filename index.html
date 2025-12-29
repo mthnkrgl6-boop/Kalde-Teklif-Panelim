@@ -109,7 +109,14 @@
     <section class="view" data-view="lists">
       <section class="panel">
         <div class="section-title">Fiyat Liste Ekleme</div>
-        <p class="meta">Her ürün grubu için fiyat, iskonto ve KDV bilgilerini girin.</p>
+        <p class="meta">Her ürün grubu için fiyat, iskonto ve KDV bilgilerini girin. Excel/CSV yükleyerek listeyi hızlıca oluşturabilirsiniz. Sütunlar: kod, ad, fiyat, kdv (opsiyonel).</p>
+        <div class="list-import">
+          <select id="listImportGroup">
+            <option value="">Grup Seçin</option>
+          </select>
+          <input type="file" id="listImportFile" accept=".csv,.txt" />
+          <button id="listImportButton" class="primary">Liste Yükle</button>
+        </div>
         <div id="priceGroups" class="group-grid"></div>
       </section>
     </section>

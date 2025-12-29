@@ -36,6 +36,9 @@ const globalDiscountInput = document.getElementById("globalDiscount");
 const downloadPdfButton = document.getElementById("downloadPdf");
 const downloadExcelButton = document.getElementById("downloadExcel");
 const convertButtons = document.querySelectorAll(".pill");
+const listImportFile = document.getElementById("listImportFile");
+const listImportButton = document.getElementById("listImportButton");
+const listImportGroup = document.getElementById("listImportGroup");
 
 const subtotalEl = document.getElementById("subtotal");
 const vatTotalEl = document.getElementById("vatTotal");
@@ -60,6 +63,7 @@ function createId(prefix = "id") {
 function renderGroupCards() {
   priceGroupsContainer.innerHTML = "";
   preferredGroupSelect.innerHTML = '<option value="">Hepsi</option>';
+  listImportGroup.innerHTML = '<option value="">Grup Seçin</option>';
 
   groupConfig.forEach((group) => {
     priceData[group.key] = priceData[group.key] ?? {
@@ -123,6 +127,7 @@ function renderGroupCards() {
     option.value = group.key;
     option.textContent = group.label;
     preferredGroupSelect.appendChild(option);
+    listImportGroup.appendChild(option.cloneNode(true));
   });
 }
 
@@ -416,7 +421,7 @@ function handleQuoteGeneration() {
   const monthlyRate = Number(monthlyRateInput.value) || 0;
   const days = Number(dueDaysInput.value) || 0;
   const subtotal = lines.reduce((acc, l) => acc + l.unit * l.qty, 0);
-  const vatTotal = lines.reduce((acc, l) => acc + l.unit * l.qty * (l.vat / 100), 0);
+  const vatTotal = lines.reduce((acc, l) => acc + l.unit * l.qty * ((l.vat || 20) / 100), 0);
   const finance = paymentType === "vadeli" ? ((subtotal + vatTotal) * monthlyRate * (days / 30)) / 100 : 0;
 
   const html = `
@@ -545,8 +550,32 @@ function renderAttachments() {
   });
 }
 
+function parseListCSV(text, groupKey) {
+  if (!groupKey || !priceData[groupKey]) return;
+  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  if (!lines.length) return;
+  lines.forEach((line) => {
+    const parts = line.split(/[,;\t]/).map((p) => p.trim());
+    if (parts.length < 3) return;
+    const [code, name, priceRaw, vatRaw] = parts;
+    const price = Number(priceRaw);
+    if (!code || !name || Number.isNaN(price)) return;
+    const vat = vatRaw === undefined ? null : Number(vatRaw);
+    priceData[groupKey].items.push({
+      id: createId("prd"),
+      code,
+      name,
+      price,
+      vat: Number.isNaN(vat) ? null : vat,
+    });
+  });
+  renderGroupCards();
+  refreshProductSelects();
+}
+
 function handleFiles(files) {
   Array.from(files).forEach((file) => {
+    if (file === listImportFile?.files?.[0]) return;
     const url = URL.createObjectURL(file);
     attachments.push({
       id: createId("att"),
@@ -602,6 +631,69 @@ function applyGlobalDiscount() {
   recalcTotals();
 }
 
+function downloadAsExcel() {
+  if (!matchRows.size) return alert("Önce teklif listesi oluşturun.");
+  const headers = ["Ürün Kodu", "Ürün Adı", "Adet", "Birim Fiyat", "İskonto", "KDV", "Toplam"];
+  const rows = [];
+  matchRows.forEach((match) => {
+    const product = getProductByValue(`${match.groupKey}:${match.productId}`);
+    if (!product) return;
+    const discounted = product.price * (1 - (match.discount || 0) / 100);
+    const lineNet = discounted * (match.qty || 1);
+    const vatAmount = lineNet * ((match.vat || 20) / 100);
+    rows.push([
+      product.code,
+      product.name,
+      match.qty || 1,
+      discounted.toFixed(2),
+      (match.discount || 0).toFixed(2),
+      (match.vat || 20).toFixed(2),
+      (lineNet + vatAmount).toFixed(2),
+    ]);
+  });
+  const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "teklif.csv";
+  link.click();
+}
+
+function downloadAsDoc() {
+  if (!matchRows.size) return alert("Önce teklif listesi oluşturun.");
+  const rows = [];
+  matchRows.forEach((match) => {
+    const product = getProductByValue(`${match.groupKey}:${match.productId}`);
+    if (!product) return;
+    const discounted = product.price * (1 - (match.discount || 0) / 100);
+    const lineNet = discounted * (match.qty || 1);
+    const vatAmount = lineNet * ((match.vat || 20) / 100);
+    rows.push(`<tr>
+      <td>${product.code}</td>
+      <td>${product.name}</td>
+      <td>${match.qty || 1}</td>
+      <td>${discounted.toFixed(2)}</td>
+      <td>${(match.discount || 0).toFixed(2)}</td>
+      <td>${(match.vat || 20).toFixed(2)}</td>
+      <td>${(lineNet + vatAmount).toFixed(2)}</td>
+    </tr>`);
+  });
+  const html = `
+    <html><body>
+    <h1>Teklif</h1>
+    <table border="1" cellspacing="0" cellpadding="6">
+      <tr><th>Ürün Kodu</th><th>Ürün Adı</th><th>Adet</th><th>Birim Fiyat</th><th>İskonto</th><th>KDV</th><th>Toplam</th></tr>
+      ${rows.join("")}
+    </table>
+    </body></html>
+  `;
+  const blob = new Blob([html], { type: "application/msword" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "teklif.doc";
+  link.click();
+}
+
 function init() {
   renderGroupCards();
 
@@ -630,9 +722,20 @@ function init() {
   autoMatchButton?.addEventListener("click", () => autoMatch());
   generateQuoteButton?.addEventListener("click", () => handleQuoteGeneration());
   downloadPdfButton?.addEventListener("click", () => handleQuoteGeneration());
-  downloadExcelButton?.addEventListener("click", () =>
-    alert("Excel indirme yakında eklenecek.")
-  );
+  downloadExcelButton?.addEventListener("click", () => downloadAsExcel());
+  downloadExcelButton?.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
+    downloadAsDoc();
+  });
+
+  listImportButton?.addEventListener("click", () => {
+    const groupKey = listImportGroup?.value;
+    const file = listImportFile?.files?.[0];
+    if (!groupKey || !file) return alert("Liste ve dosya seçin (CSV).");
+    const reader = new FileReader();
+    reader.onload = (ev) => parseListCSV(ev.target?.result || "", groupKey);
+    reader.readAsText(file, "UTF-8");
+  });
 
   paymentTypeSelect?.addEventListener("change", recalcTotals);
   monthlyRateInput.addEventListener("input", recalcTotals);

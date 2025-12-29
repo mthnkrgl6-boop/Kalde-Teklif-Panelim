@@ -320,6 +320,14 @@ table { width: 100%; border-collapse: collapse; }
   gap: 0.75rem;
 }
 
+.list-import {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin: 0.5rem 0 1rem;
+  flex-wrap: wrap;
+}
+
 .group-header {
   display: flex;
   justify-content: space-between;
