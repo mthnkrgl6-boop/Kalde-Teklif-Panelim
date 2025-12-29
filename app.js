@@ -573,7 +573,7 @@ function parseListCSV(text, groupKey) {
     const parts = line.split(/[,;\t]/).map((p) => p.trim());
     if (parts.length < 3) return;
     const [code, name, priceRaw] = parts;
-    const price = Number(priceRaw);
+    const price = parseFloat(priceRaw.replace(",", "."));
     if (!code || !name || Number.isNaN(price)) return;
     priceData[groupKey].items.push({
       id: createId("prd"),
