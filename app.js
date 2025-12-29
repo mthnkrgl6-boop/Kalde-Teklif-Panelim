@@ -314,24 +314,15 @@ function findBestProduct(text, preferredGroup) {
       const name = item.name.toLowerCase();
       const code = item.code.toLowerCase();
       const combined = `${code} ${name}`;
-      let score = 0;
 
-      if (haystack.includes(code)) score += 4;
-      if (code.includes(haystack)) score += 2;
-
-      words.forEach((w) => {
-        if (combined.includes(w)) score += 1.5;
-      });
-
-      score += similarityScore(haystack, combined) * 6;
-
+      const score = computeMatchScore(words, haystack, combined, code, groupKey === preferredGroup);
       if (score > bestScore) {
         bestScore = score;
         best = { ...item, groupKey };
       }
     });
   });
-  return best;
+  return bestScore < 0.35 ? null : best;
 }
 
 function fillMatchCells(row, product) {
@@ -720,6 +711,24 @@ function similarityScore(a, b) {
   });
   const dice = diceCoefficient(a, b);
   return overlap + dice;
+}
+
+function computeMatchScore(words, haystack, combined, code, preferredBoost) {
+  if (!combined) return 0;
+  let score = 0;
+  if (haystack.includes(code)) score += 5;
+  if (code.includes(haystack)) score += 2;
+
+  words.forEach((w) => {
+    if (combined.includes(w)) score += 2;
+  });
+
+  const overlap = words.filter((w) => combined.includes(w)).length;
+  if (overlap === 0 && !haystack.includes(code) && !code.includes(haystack)) score -= 1;
+
+  score += similarityScore(haystack, combined) * 6;
+  if (preferredBoost) score += 1.5;
+  return score;
 }
 
 function diceCoefficient(a, b) {
