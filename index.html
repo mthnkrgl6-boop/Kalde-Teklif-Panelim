@@ -143,10 +143,6 @@
           <span>İskonto (%)</span>
           <input type="number" class="discount-input" step="0.01" min="0" value="0">
         </label>
-        <label>
-          <span>Varsayılan KDV (%)</span>
-          <input type="number" class="vat-input" step="0.01" min="0" value="20">
-        </label>
       </div>
       <div class="table-wrapper compact">
         <table class="data-table">
@@ -155,7 +151,6 @@
               <th>Kod</th>
               <th>Ürün Adı</th>
               <th>Birim Fiyat</th>
-              <th>KDV (%)</th>
               <th></th>
             </tr>
           </thead>
@@ -166,13 +161,12 @@
         <input type="file" class="group-import-file" accept=".csv,.txt">
         <button type="button" class="icon-button group-import-button">Excel ile Yükle</button>
         <button type="button" class="icon-button danger group-clear-button">Toplu Sil</button>
-        <p class="meta">Sütunlar: kod, ad, fiyat, kdv (opsiyonel)</p>
+        <p class="meta">Sütunlar: kod, ad, fiyat</p>
       </div>
       <form class="add-product">
         <input type="text" name="code" placeholder="Kod" required>
         <input type="text" name="name" placeholder="Ürün adı" required>
         <input type="number" name="price" placeholder="Fiyat" step="0.01" min="0" required>
-        <input type="number" name="vat" placeholder="KDV (%)" step="0.01" min="0">
         <button type="submit" class="secondary">Ürün Ekle</button>
       </form>
     </div>

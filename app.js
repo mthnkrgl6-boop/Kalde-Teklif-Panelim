@@ -10,6 +10,7 @@ const groupConfig = [
 ];
 
 const priceData = {};
+const DEFAULT_VAT = 20;
 const requestItems = [];
 const matchRows = new Map();
 const attachments = [];
@@ -69,7 +70,7 @@ function renderGroupCards() {
     priceData[group.key] = priceData[group.key] ?? {
       label: group.label,
       discount: 0,
-      vat: 20,
+      vat: DEFAULT_VAT,
       items: [],
     };
 
@@ -78,21 +79,13 @@ function renderGroupCards() {
     card.querySelector(".group-title").textContent = group.label;
 
     const discountInput = card.querySelector(".discount-input");
-    const vatInput = card.querySelector(".vat-input");
     const importInput = card.querySelector(".group-import-file");
     const importButton = card.querySelector(".group-import-button");
     const clearButton = card.querySelector(".group-clear-button");
     discountInput.value = priceData[group.key].discount;
-    vatInput.value = priceData[group.key].vat;
 
     discountInput.addEventListener("input", (e) => {
       priceData[group.key].discount = Number(e.target.value) || 0;
-      syncGroupDefaults(group.key);
-      recalcTotals();
-    });
-
-    vatInput.addEventListener("input", (e) => {
-      priceData[group.key].vat = Number(e.target.value) || 0;
       syncGroupDefaults(group.key);
       recalcTotals();
     });
@@ -106,7 +99,6 @@ function renderGroupCards() {
       const code = formData.get("code").trim();
       const name = formData.get("name").trim();
       const price = Number(formData.get("price")) || 0;
-      const vat = formData.get("vat");
 
       if (!code || !name || price <= 0) return;
 
@@ -115,7 +107,7 @@ function renderGroupCards() {
         code,
         name,
         price,
-        vat: vat === "" ? null : Number(vat),
+        vat: DEFAULT_VAT,
       });
 
       addProductForm.reset();
@@ -160,7 +152,6 @@ function renderProducts(groupKey, bodyEl) {
       <td>${item.code}</td>
       <td>${item.name}</td>
       <td>${formatCurrency(item.price)}</td>
-      <td>${(item.vat ?? priceData[groupKey].vat).toFixed(2)}</td>
       <td><button type="button" class="icon-button danger">Sil</button></td>
     `;
 
@@ -315,31 +306,34 @@ function syncGroupDefaults(groupKey) {
 
 function findBestProduct(text, preferredGroup) {
   const haystack = text.toLowerCase();
-  const words = haystack.split(/[\s-_,.;]+/).filter((w) => w.length > 2);
+  const words = haystack.split(/[\s-_,.;]+/).filter((w) => w.length > 1);
   let best = null;
-  let bestScore = -Infinity;
+  let bestScore = 0;
 
   Object.entries(priceData).forEach(([groupKey, data]) => {
     if (preferredGroup && groupKey !== preferredGroup) return;
     data.items.forEach((item) => {
       const name = item.name.toLowerCase();
       const code = item.code.toLowerCase();
+      const combined = `${code} ${name}`;
       let score = 0;
-      if (haystack.includes(code)) score += 3;
-      if (code.includes(haystack)) score += 1;
+
+      if (haystack.includes(code)) score += 4;
+      if (code.includes(haystack)) score += 2;
+
       words.forEach((w) => {
-        if (name.includes(w)) score += 1.2;
-        if (code.includes(w)) score += 1;
+        if (combined.includes(w)) score += 1.5;
       });
-      const overlap = name.split(/\s+/).filter((n) => words.includes(n)).length;
-      score += overlap * 0.5;
+
+      score += similarityScore(haystack, combined) * 6;
+
       if (score > bestScore) {
         bestScore = score;
         best = { ...item, groupKey };
       }
     });
   });
-  return bestScore <= 0 ? null : best;
+  return best;
 }
 
 function fillMatchCells(row, product) {
@@ -347,6 +341,8 @@ function fillMatchCells(row, product) {
   const priceCell = row.querySelector(".price-cell");
   codeCell.textContent = product.code;
   priceCell.textContent = formatCurrency(product.price);
+  const vatInput = row.querySelector(".vat-cell");
+  if (vatInput && !vatInput.value) vatInput.value = DEFAULT_VAT;
 }
 
 function recalcTotals() {
@@ -358,7 +354,7 @@ function recalcTotals() {
     if (!product) return;
     const discounted = product.price * (1 - (match.discount || 0) / 100);
     const line = discounted * (match.qty || 1);
-    const vatAmount = line * ((match.vat || 0) / 100);
+    const vatAmount = line * ((match.vat || DEFAULT_VAT) / 100);
     subtotal += line;
     vatTotal += vatAmount;
 
@@ -442,7 +438,7 @@ function handleQuoteGeneration() {
   const monthlyRate = Number(monthlyRateInput.value) || 0;
   const days = Number(dueDaysInput.value) || 0;
   const subtotal = lines.reduce((acc, l) => acc + l.unit * l.qty, 0);
-  const vatTotal = lines.reduce((acc, l) => acc + l.unit * l.qty * ((l.vat || 20) / 100), 0);
+  const vatTotal = lines.reduce((acc, l) => acc + l.unit * l.qty * ((l.vat || DEFAULT_VAT) / 100), 0);
   const finance = paymentType === "vadeli" ? ((subtotal + vatTotal) * monthlyRate * (days / 30)) / 100 : 0;
 
   const html = `
@@ -576,16 +572,15 @@ function parseListCSV(text, groupKey) {
   lines.forEach((line) => {
     const parts = line.split(/[,;\t]/).map((p) => p.trim());
     if (parts.length < 3) return;
-    const [code, name, priceRaw, vatRaw] = parts;
+    const [code, name, priceRaw] = parts;
     const price = Number(priceRaw);
     if (!code || !name || Number.isNaN(price)) return;
-    const vat = vatRaw === undefined ? null : Number(vatRaw);
     priceData[groupKey].items.push({
       id: createId("prd"),
       code,
       name,
       price,
-      vat: Number.isNaN(vat) ? null : vat,
+      vat: DEFAULT_VAT,
     });
   });
   renderGroupCards();
@@ -666,6 +661,42 @@ function extractQuantityAndDesc(line) {
     }
   }
   return { qty, desc: desc || line };
+}
+
+function similarityScore(a, b) {
+  if (!a || !b) return 0;
+  const tokensA = a.split(/\s+/).filter(Boolean);
+  const tokensB = b.split(/\s+/).filter(Boolean);
+  const setB = new Set(tokensB);
+  let overlap = 0;
+  tokensA.forEach((t) => {
+    if (setB.has(t)) overlap += 1.5;
+  });
+  const dice = diceCoefficient(a, b);
+  return overlap + dice;
+}
+
+function diceCoefficient(a, b) {
+  if (!a.length || !b.length) return 0;
+  const bigrams = (str) => {
+    const s = ` ${str} `;
+    const res = [];
+    for (let i = 0; i < s.length - 1; i++) res.push(s.slice(i, i + 2));
+    return res;
+  };
+  const aBigrams = bigrams(a);
+  const bBigrams = bigrams(b);
+  const map = new Map();
+  aBigrams.forEach((bg) => map.set(bg, (map.get(bg) || 0) + 1));
+  let intersection = 0;
+  bBigrams.forEach((bg) => {
+    const count = map.get(bg) || 0;
+    if (count > 0) {
+      map.set(bg, count - 1);
+      intersection += 1;
+    }
+  });
+  return (2 * intersection) / (aBigrams.length + bBigrams.length);
 }
 
 function downloadAsExcel() {
