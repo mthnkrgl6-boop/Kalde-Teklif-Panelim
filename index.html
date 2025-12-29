@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kalde Teklif Paneli</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  </head>
+<body>
+  <header class="page-header">
+    <h1>TEKLİF MERKEZİ</h1>
+    <nav class="view-tabs">
+      <button class="tab-button active" data-view-target="builder">Teklif Oluştur</button>
+      <button class="tab-button" data-view-target="archive">Teklif Arşivi</button>
+      <button class="tab-button" data-view-target="lists">Fiyat Liste Ekleme</button>
+    </nav>
+  </header>
+
+  <main>
+    <section class="view active" data-view="builder">
+      <section class="panel">
+        <div class="section-title">Müşteri Talebi</div>
+        <div class="input-area">
+          <div class="dropzone" id="uploadArea">
+            <textarea id="requestBulk" placeholder="Buraya Excel, Word, Fotoğraf veya yazı ekleyin"></textarea>
+            <input type="file" id="requestFiles" accept=".png,.jpg,.jpeg,.pdf,.xls,.xlsx,.csv,.doc,.docx" multiple>
+          </div>
+          <div class="convert-actions">
+            <button class="pill" data-convert="excel">Excelden Dönüştür</button>
+            <button class="pill" data-convert="word">Wordden Dönüştür</button>
+            <button class="pill" data-convert="text">Yazıdan Dönüştür</button>
+            <button class="pill" data-convert="photo">Fotoğraftan Dönüştür</button>
+            <div id="attachmentList" class="attachment-list"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-title">Dönüştürülmüş Liste</div>
+        <div class="list-grid">
+          <div class="table-wrapper soft">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Ürün Kodu</th>
+                  <th>Ürün Adı</th>
+                  <th>Adet</th>
+                  <th>Birim Fiyat</th>
+                  <th>İskonto</th>
+                  <th>KDV</th>
+                  <th>Toplam</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="matchBody"></tbody>
+            </table>
+          </div>
+          <div class="actions-panel">
+            <div class="action-buttons">
+              <button id="addEmptyLine" class="text-button">Ürün Ekle</button>
+              <button id="autoMatch" class="text-button">Ürün Düzelt</button>
+              <button id="removeLastLine" class="text-button">Ürün Sil</button>
+            </div>
+            <div class="field">
+              <label for="preferredGroup">Liste Seç</label>
+              <select id="preferredGroup">
+                <option value="">Hepsi</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="globalDiscount">İskonto (%)</label>
+              <input type="number" id="globalDiscount" min="0" step="0.01" value="0">
+            </div>
+            <div class="field">
+              <label for="paymentTypeSelect">Ödeme Türü</label>
+              <select id="paymentTypeSelect">
+                <option value="pesin">Peşin</option>
+                <option value="vadeli">Vadeli</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="monthlyRate">Vade Farkı (%)</label>
+              <input type="number" id="monthlyRate" min="0" step="0.01" value="0">
+              <input type="hidden" id="dueDays" value="30">
+            </div>
+            <button id="generateQuote" class="primary large">TEKLİF OLUŞTUR</button>
+            <div class="totals compact">
+              <div><span>Ara Toplam</span><strong id="subtotal">₺0,00</strong></div>
+              <div><span>KDV</span><strong id="vatTotal">₺0,00</strong></div>
+              <div><span>Vade Farkı</span><strong id="financeTotal">₺0,00</strong></div>
+              <div><span>Genel Toplam</span><strong id="grandTotal">₺0,00</strong></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="download-row">
+        <div>
+          <p class="section-title small">TEKLİFİ İNDİR</p>
+          <div class="download-buttons">
+            <button id="downloadPdf" class="icon-download pdf">PDF</button>
+            <button id="downloadExcel" class="icon-download excel">Excel</button>
+          </div>
+        </div>
+        <p class="meta warning" id="unmatchedInfo" hidden>Otomatik eşleşmeyen satırlar mevcut. Manuel seçim yapın veya fiyat listesini güncelleyin.</p>
+      </section>
+    </section>
+
+    <section class="view" data-view="lists">
+      <section class="panel">
+        <div class="section-title">Fiyat Liste Ekleme</div>
+        <p class="meta">Her ürün grubu için fiyat, iskonto ve KDV bilgilerini girin. Excel/CSV yükleyerek listeyi hızlıca oluşturabilirsiniz. Sütunlar: kod, ad, fiyat, kdv (opsiyonel).</p>
+        <div class="list-import">
+          <select id="listImportGroup">
+            <option value="">Grup Seçin</option>
+          </select>
+          <input type="file" id="listImportFile" accept=".csv,.txt,.xls,.xlsx" />
+          <button id="listImportButton" class="primary">Liste Yükle</button>
+        </div>
+        <div id="priceGroups" class="group-grid"></div>
+      </section>
+    </section>
+
+    <section class="view" data-view="archive">
+      <section class="panel">
+        <div class="section-title">Teklif Arşivi</div>
+        <p class="meta">Yakında eklenecek.</p>
+      </section>
+    </section>
+  </main>
+
+  <template id="groupTemplate">
+    <div class="group-card">
+      <div class="group-header">
+        <div>
+          <p class="eyebrow group-eyebrow">Ürün Grubu</p>
+          <h3 class="group-title"></h3>
+        </div>
+        <div class="badge">Liste Yönetimi</div>
+      </div>
+      <div class="group-controls">
+        <label>
+          <span>İskonto (%)</span>
+          <input type="number" class="discount-input" step="0.01" min="0" value="0">
+        </label>
+      </div>
+      <div class="table-wrapper compact">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Kod</th>
+              <th>Ürün Adı</th>
+              <th>Birim Fiyat</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody class="product-body"></tbody>
+        </table>
+      </div>
+      <div class="group-import">
+        <input type="file" class="group-import-file" accept=".csv,.txt,.xls,.xlsx">
+        <button type="button" class="icon-button group-import-button">Excel ile Yükle</button>
+        <button type="button" class="icon-button danger group-clear-button">Toplu Sil</button>
+        <p class="meta">Sütunlar: kod, ad, fiyat</p>
+      </div>
+      <form class="add-product">
+        <input type="text" name="code" placeholder="Kod" required>
+        <input type="text" name="name" placeholder="Ürün adı" required>
+        <input type="number" name="price" placeholder="Fiyat" step="0.01" min="0" required>
+        <button type="submit" class="secondary">Ürün Ekle</button>
+      </form>
+    </div>
+  </template>
+
+  <template id="productOptionTemplate">
+    <optgroup></optgroup>
+  </template>
+
+  <template id="matchRowTemplate">
+    <tr>
+      <td class="code-cell"></td>
+      <td class="product-cell">
+        <select class="product-select">
+          <option value="">Eşleşme yok</option>
+        </select>
+        <textarea class="request-text-input" rows="1" placeholder="Talep notu"></textarea>
+      </td>
+      <td><input type="number" class="qty-input" min="1" step="1" value="1"></td>
+      <td class="price-cell"></td>
+      <td><input type="number" class="discount-cell" min="0" step="0.01" value="0"></td>
+      <td><input type="number" class="vat-cell" min="0" step="0.01" value="20"></td>
+      <td class="line-total">₺0,00</td>
+      <td><button class="icon-button danger remove-row" type="button">Sil</button></td>
+    </tr>
+  </template>
+
+  <script src="app.js"></script>
+</body>
+</html>
