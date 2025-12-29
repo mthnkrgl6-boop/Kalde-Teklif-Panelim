@@ -81,6 +81,7 @@ function renderGroupCards() {
     const vatInput = card.querySelector(".vat-input");
     const importInput = card.querySelector(".group-import-file");
     const importButton = card.querySelector(".group-import-button");
+    const clearButton = card.querySelector(".group-clear-button");
     discountInput.value = priceData[group.key].discount;
     vatInput.value = priceData[group.key].vat;
 
@@ -133,6 +134,12 @@ function renderGroupCards() {
 
     importButton.addEventListener("click", handleGroupImport);
     importInput.addEventListener("change", handleGroupImport);
+    clearButton.addEventListener("click", () => {
+      priceData[group.key].items = [];
+      renderProducts(group.key, productBody);
+      refreshProductSelects();
+      recalcTotals();
+    });
 
     renderProducts(group.key, productBody);
     priceGroupsContainer.appendChild(card);
@@ -515,10 +522,8 @@ function parseBulkRequests() {
   if (!lines.length) return;
 
   lines.forEach((line) => {
-    const match = line.match(/^(\d+)\s*(?:x|×|adet)?\s*(.+)$/i);
-    const qty = match ? Number(match[1]) || 1 : 1;
-    const desc = match ? match[2] : line;
-    addRequestItem(desc, qty, preferredGroupSelect.value);
+    const parsed = extractQuantityAndDesc(line);
+    addRequestItem(parsed.desc, parsed.qty, preferredGroupSelect.value);
   });
 
   requestBulkInput.value = "";
@@ -643,6 +648,24 @@ function applyGlobalDiscount() {
     if (row) row.querySelector(".discount-cell").value = value;
   });
   recalcTotals();
+}
+
+function extractQuantityAndDesc(line) {
+  let qty = 1;
+  let desc = line;
+  const unitRegex = /(\d+(?:[.,]\d+)?)\s*(?:x|×|adet|tane|metre|m|mt)\b/i;
+  const match = line.match(unitRegex);
+  if (match) {
+    qty = Number(match[1].replace(",", ".")) || 1;
+    desc = line.replace(match[0], "").trim();
+  } else {
+    const leading = line.match(/^(\d+(?:[.,]\d+)?)/);
+    if (leading) {
+      qty = Number(leading[1].replace(",", ".")) || 1;
+      desc = line.replace(leading[0], "").trim();
+    }
+  }
+  return { qty, desc: desc || line };
 }
 
 function downloadAsExcel() {

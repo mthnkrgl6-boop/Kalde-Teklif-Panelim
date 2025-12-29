@@ -360,6 +360,11 @@ table { width: 100%; border-collapse: collapse; }
   font-size: 0.9rem;
 }
 
+.group-clear-button {
+  color: #b91c1c;
+  border-color: #b91c1c33;
+}
+
 .add-product {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr)) 140px;
