@@ -117,10 +117,8 @@ function renderGroupCards() {
 
     const handleGroupImport = () => {
       const file = importInput.files?.[0];
-      if (!file) return alert("CSV dosyası seçin.");
-      const reader = new FileReader();
-      reader.onload = (ev) => parseListCSV(ev.target?.result || "", group.key);
-      reader.readAsText(file, "UTF-8");
+      if (!file) return alert("Dosya seçin (CSV/XLS/XLSX).");
+      parseListFile(file, group.key);
       importInput.value = "";
     };
 
@@ -573,7 +571,7 @@ function parseListCSV(text, groupKey) {
     const parts = line.split(/[,;\t]/).map((p) => p.trim());
     if (parts.length < 3) return;
     const [code, name, priceRaw] = parts;
-    const price = parseFloat(priceRaw.replace(",", "."));
+    const price = parsePrice(priceRaw);
     if (!code || !name || Number.isNaN(price)) return;
     priceData[groupKey].items.push({
       id: createId("prd"),
@@ -585,6 +583,54 @@ function parseListCSV(text, groupKey) {
   });
   renderGroupCards();
   refreshProductSelects();
+}
+
+function parseListXLSX(arrayBuffer, groupKey) {
+  if (typeof XLSX === "undefined") {
+    alert("Excel dosyaları için XLSX kütüphanesi yüklenemedi.");
+    return;
+  }
+  const wb = XLSX.read(arrayBuffer, { type: "array" });
+  const sheetName = wb.SheetNames[0];
+  const sheet = wb.Sheets[sheetName];
+  const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, blankrows: false });
+  rows.forEach((row) => {
+    if (row.length < 3) return;
+    const [code, name, priceRaw] = row;
+    const price = parsePrice(priceRaw);
+    if (!code || !name || Number.isNaN(price)) return;
+    priceData[groupKey].items.push({
+      id: createId("prd"),
+      code: String(code).trim(),
+      name: String(name).trim(),
+      price,
+      vat: DEFAULT_VAT,
+    });
+  });
+  renderGroupCards();
+  refreshProductSelects();
+}
+
+function parsePrice(raw) {
+  if (raw === null || raw === undefined) return NaN;
+  if (typeof raw === "number") return raw;
+  const normalized = String(raw).replace(",", ".").trim();
+  return Number.parseFloat(normalized);
+}
+
+function parseListFile(file, groupKey) {
+  const ext = (file.name.split(".").pop() || "").toLowerCase();
+  if (ext === "csv" || ext === "txt") {
+    const reader = new FileReader();
+    reader.onload = (ev) => parseListCSV(ev.target?.result || "", groupKey);
+    reader.readAsText(file, "UTF-8");
+  } else if (ext === "xls" || ext === "xlsx") {
+    const reader = new FileReader();
+    reader.onload = (ev) => parseListXLSX(ev.target?.result, groupKey);
+    reader.readAsArrayBuffer(file);
+  } else {
+    alert("Desteklenmeyen dosya türü. CSV veya Excel yükleyin.");
+  }
 }
 
 function handleFiles(files) {
@@ -799,10 +845,8 @@ function init() {
   listImportButton?.addEventListener("click", () => {
     const groupKey = listImportGroup?.value;
     const file = listImportFile?.files?.[0];
-    if (!groupKey || !file) return alert("Liste ve dosya seçin (CSV).");
-    const reader = new FileReader();
-    reader.onload = (ev) => parseListCSV(ev.target?.result || "", groupKey);
-    reader.readAsText(file, "UTF-8");
+    if (!groupKey || !file) return alert("Liste ve dosya seçin (CSV/XLS/XLSX).");
+    parseListFile(file, groupKey);
   });
 
   paymentTypeSelect?.addEventListener("change", recalcTotals);
