@@ -349,6 +349,17 @@ table { width: 100%; border-collapse: collapse; }
   gap: 0.75rem;
 }
 
+.group-import {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.group-import input[type="file"] {
+  font-size: 0.9rem;
+}
+
 .add-product {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr)) 140px;

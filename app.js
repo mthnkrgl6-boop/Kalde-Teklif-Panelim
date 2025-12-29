@@ -79,6 +79,8 @@ function renderGroupCards() {
 
     const discountInput = card.querySelector(".discount-input");
     const vatInput = card.querySelector(".vat-input");
+    const importInput = card.querySelector(".group-import-file");
+    const importButton = card.querySelector(".group-import-button");
     discountInput.value = priceData[group.key].discount;
     vatInput.value = priceData[group.key].vat;
 
@@ -119,6 +121,18 @@ function renderGroupCards() {
       renderProducts(group.key, productBody);
       refreshProductSelects();
     });
+
+    const handleGroupImport = () => {
+      const file = importInput.files?.[0];
+      if (!file) return alert("CSV dosyası seçin.");
+      const reader = new FileReader();
+      reader.onload = (ev) => parseListCSV(ev.target?.result || "", group.key);
+      reader.readAsText(file, "UTF-8");
+      importInput.value = "";
+    };
+
+    importButton.addEventListener("click", handleGroupImport);
+    importInput.addEventListener("change", handleGroupImport);
 
     renderProducts(group.key, productBody);
     priceGroupsContainer.appendChild(card);
