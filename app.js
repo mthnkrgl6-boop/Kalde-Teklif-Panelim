@@ -18,20 +18,24 @@ const priceGroupsContainer = document.getElementById("priceGroups");
 const requestForm = document.getElementById("requestForm");
 const requestBulkInput = document.getElementById("requestBulk");
 const preferredGroupSelect = document.getElementById("preferredGroup");
-const addBulkRequestsButton = document.getElementById("addBulkRequests");
 const uploadArea = document.getElementById("uploadArea");
 const requestFilesInput = document.getElementById("requestFiles");
 const attachmentList = document.getElementById("attachmentList");
 const viewTabs = document.querySelectorAll("[data-view-target]");
 const views = document.querySelectorAll("[data-view]");
-const requestTextInput = document.getElementById("requestText");
-const requestQtyInput = document.getElementById("requestQty");
 const matchBody = document.getElementById("matchBody");
 const autoMatchButton = document.getElementById("autoMatch");
 const generateQuoteButton = document.getElementById("generateQuote");
 const monthlyRateInput = document.getElementById("monthlyRate");
 const dueDaysInput = document.getElementById("dueDays");
 const unmatchedInfo = document.getElementById("unmatchedInfo");
+const addEmptyLineButton = document.getElementById("addEmptyLine");
+const removeLastLineButton = document.getElementById("removeLastLine");
+const paymentTypeSelect = document.getElementById("paymentTypeSelect");
+const globalDiscountInput = document.getElementById("globalDiscount");
+const downloadPdfButton = document.getElementById("downloadPdf");
+const downloadExcelButton = document.getElementById("downloadExcel");
+const convertButtons = document.querySelectorAll(".pill");
 
 const subtotalEl = document.getElementById("subtotal");
 const vatTotalEl = document.getElementById("vatTotal");
@@ -338,7 +342,7 @@ function recalcTotals() {
     }
   });
 
-  const paymentType = document.querySelector('input[name="paymentType"]:checked').value;
+  const paymentType = paymentTypeSelect?.value || "pesin";
   const monthlyRate = Number(monthlyRateInput.value) || 0;
   const days = Number(dueDaysInput.value) || 0;
   const finance = paymentType === "vadeli" ? ((subtotal + vatTotal) * monthlyRate * (days / 30)) / 100 : 0;
@@ -408,7 +412,7 @@ function handleQuoteGeneration() {
     return;
   }
 
-  const paymentType = document.querySelector('input[name="paymentType"]:checked').value;
+  const paymentType = paymentTypeSelect?.value || "pesin";
   const monthlyRate = Number(monthlyRateInput.value) || 0;
   const days = Number(dueDaysInput.value) || 0;
   const subtotal = lines.reduce((acc, l) => acc + l.unit * l.qty, 0);
@@ -556,6 +560,7 @@ function handleFiles(files) {
 }
 
 function setupUploads() {
+  if (!uploadArea || !requestFilesInput) return;
   uploadArea.addEventListener("dragover", (e) => {
     e.preventDefault();
     uploadArea.classList.add("dragging");
@@ -587,38 +592,56 @@ function updateUnmatchedInfo() {
   unmatchedInfo.hidden = unmatched === 0;
 }
 
+function applyGlobalDiscount() {
+  const value = Number(globalDiscountInput?.value) || 0;
+  matchRows.forEach((match, id) => {
+    match.discount = value;
+    const row = matchBody.querySelector(`[data-request-id="${id}"]`);
+    if (row) row.querySelector(".discount-cell").value = value;
+  });
+  recalcTotals();
+}
+
 function init() {
   renderGroupCards();
 
-  requestForm?.addEventListener("submit", (e) => {
-    e.preventDefault();
-    const text = requestTextInput?.value?.trim() ?? "";
-    const qty = Number(requestQtyInput?.value) || 1;
-    const preferredGroup = preferredGroupSelect.value;
-    if (!text) return;
-    addRequestItem(text, qty, preferredGroup);
-    requestForm.reset();
-    if (requestQtyInput) requestQtyInput.value = 1;
-    preferredGroupSelect.value = "";
-    updateUnmatchedInfo();
-  });
-
-  addBulkRequestsButton.addEventListener("click", () => {
-    parseBulkRequests();
-    updateUnmatchedInfo();
-  });
-
-  autoMatchButton.addEventListener("click", () => autoMatch());
-  generateQuoteButton.addEventListener("click", () => handleQuoteGeneration());
-
-  document.querySelectorAll('input[name="paymentType"]').forEach((input) =>
-    input.addEventListener("change", recalcTotals)
+  convertButtons.forEach((btn) =>
+    btn.addEventListener("click", () => {
+      parseBulkRequests();
+      autoMatch();
+    })
   );
+
+  addEmptyLineButton?.addEventListener("click", () => {
+    addRequestItem("", 1, preferredGroupSelect.value);
+    updateUnmatchedInfo();
+  });
+
+  removeLastLineButton?.addEventListener("click", () => {
+    const last = requestItems.pop();
+    if (!last) return;
+    matchRows.delete(last.id);
+    const row = matchBody.querySelector(`[data-request-id="${last.id}"]`);
+    if (row) row.remove();
+    recalcTotals();
+    updateUnmatchedInfo();
+  });
+
+  autoMatchButton?.addEventListener("click", () => autoMatch());
+  generateQuoteButton?.addEventListener("click", () => handleQuoteGeneration());
+  downloadPdfButton?.addEventListener("click", () => handleQuoteGeneration());
+  downloadExcelButton?.addEventListener("click", () =>
+    alert("Excel indirme yakında eklenecek.")
+  );
+
+  paymentTypeSelect?.addEventListener("change", recalcTotals);
   monthlyRateInput.addEventListener("input", recalcTotals);
   dueDaysInput.addEventListener("input", recalcTotals);
+  globalDiscountInput?.addEventListener("input", applyGlobalDiscount);
   setupUploads();
   setupViews();
   renderAttachments();
+  updateUnmatchedInfo();
 }
 
 document.addEventListener("DOMContentLoaded", init);
